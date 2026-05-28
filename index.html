@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Arturo's Daily Brief</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://accounts.google.com/gsi/client" async></script>
 <style>
   :root {
     --ink: #0f0e0c;
@@ -223,6 +224,26 @@
   .refresh-btn:hover { background: var(--ink); color: var(--paper); }
   .refresh-btn:disabled { opacity: 0.4; cursor: not-allowed; }
   .error-msg { color: var(--muted); font-size: 13px; }
+  .email-item { padding: 10px 0; border-bottom: 1px solid var(--divider); }
+  .email-item:last-child { border-bottom: none; }
+  .email-from { font-size: 11px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+  .email-unread .email-from { color: var(--accent); }
+  .email-subject { font-family: 'Playfair Display', serif; font-size: 15px; font-weight: 700; line-height: 1.3; margin: 3px 0 4px; color: var(--ink); }
+  .email-snippet { font-size: 12px; color: var(--muted); line-height: 1.4; }
+  .connect-btn {
+    background: none;
+    border: 1.5px solid var(--ink);
+    border-radius: 4px;
+    padding: 10px 24px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    color: var(--ink);
+    transition: background 0.2s, color 0.2s;
+  }
+  .connect-btn:hover { background: var(--ink); color: var(--paper); }
   .theme-toggle {
     background: none;
     border: 1px solid var(--divider);
@@ -274,6 +295,18 @@
       <div class="skeleton" style="width:100%"></div><div class="skeleton" style="width:70%;margin-bottom:16px"></div>
       <div class="skeleton" style="width:100%"></div><div class="skeleton" style="width:70%;margin-bottom:16px"></div>
       <div class="skeleton" style="width:100%"></div>
+    </div>
+  </div>
+
+  <div class="section" id="emailSection">
+    <div class="section-label">Inbox</div>
+    <div id="emailContent">
+      <div class="skeleton" style="width:25%;height:11px;margin-bottom:6px"></div>
+      <div class="skeleton" style="width:100%;margin-bottom:4px"></div>
+      <div class="skeleton" style="width:60%;margin-bottom:16px"></div>
+      <div class="skeleton" style="width:25%;height:11px;margin-bottom:6px"></div>
+      <div class="skeleton" style="width:100%;margin-bottom:4px"></div>
+      <div class="skeleton" style="width:60%"></div>
     </div>
   </div>
 
@@ -537,18 +570,99 @@ async function loadNews() {
   }
 }
 
+// ── Gmail ─────────────────────────────────────────────────
+const GMAIL_CLIENT_ID = '33187806113-mek6tnuqv6lp3001k48551f1k2et4sla.apps.googleusercontent.com';
+const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
+let tokenClient;
+let gmailToken = null;
+
+function initTokenClient() {
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GMAIL_CLIENT_ID,
+    scope: GMAIL_SCOPE,
+    callback: async (resp) => {
+      if (resp.error) { showGmailConnect(); return; }
+      gmailToken = resp.access_token;
+      await fetchEmails();
+    }
+  });
+}
+
+function showGmailConnect() {
+  document.getElementById('emailContent').innerHTML =
+    `<button class="connect-btn" onclick="connectGmail()">Connect Gmail</button>`;
+  reveal('emailSection', 300);
+}
+
+function connectGmail() {
+  if (!window.google) return;
+  if (!tokenClient) initTokenClient();
+  tokenClient.requestAccessToken();
+}
+
+async function loadEmails() {
+  if (!window.google) { setTimeout(loadEmails, 500); return; }
+  if (!tokenClient) initTokenClient();
+  if (!gmailToken) { showGmailConnect(); return; }
+  await fetchEmails();
+}
+
+async function fetchEmails() {
+  try {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const after = Math.floor(today.getTime() / 1000);
+    const listRes = await fetch(
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=in:inbox after:${after}&maxResults=5`,
+      { headers: { Authorization: `Bearer ${gmailToken}` } }
+    );
+    if (listRes.status === 401) { gmailToken = null; showGmailConnect(); return; }
+    const listData = await listRes.json();
+    if (!listData.messages || listData.messages.length === 0) {
+      document.getElementById('emailContent').innerHTML = `<div class="error-msg">No emails today.</div>`;
+      reveal('emailSection', 300);
+      return;
+    }
+    const details = await Promise.all(
+      listData.messages.slice(0, 5).map(msg =>
+        fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From`,
+          { headers: { Authorization: `Bearer ${gmailToken}` } }
+        ).then(r => r.json())
+      )
+    );
+    const html = details.map(msg => {
+      const headers = msg.payload?.headers || [];
+      const subject = headers.find(h => h.name === 'Subject')?.value || '(no subject)';
+      const from = headers.find(h => h.name === 'From')?.value || '';
+      const fromName = from.replace(/<[^>]+>/g, '').replace(/"/g, '').trim() || from;
+      const snippet = (msg.snippet || '').slice(0, 100);
+      const unread = msg.labelIds?.includes('UNREAD');
+      return `
+        <div class="email-item${unread ? ' email-unread' : ''}">
+          <div class="email-from">${fromName}</div>
+          <div class="email-subject">${subject}</div>
+          ${snippet ? `<div class="email-snippet">${snippet}…</div>` : ''}
+        </div>`;
+    }).join('');
+    document.getElementById('emailContent').innerHTML = html;
+    reveal('emailSection', 300);
+  } catch(e) {
+    document.getElementById('emailContent').innerHTML = `<div class="error-msg">Couldn't load emails. Try refreshing.</div>`;
+    reveal('emailSection', 300);
+  }
+}
+
 // ── Load all ──────────────────────────────────────────────
 async function loadAll() {
   const btn = document.getElementById('refreshBtn');
   btn.disabled = true;
   btn.textContent = 'Loading...';
-  ['quoteSection','weatherSection','newsSection'].forEach(id =>
+  ['quoteSection','weatherSection','newsSection','emailSection'].forEach(id =>
     document.getElementById(id).classList.remove('visible'));
   loadQuote();
   if (!lat || !lon) {
     await detectLocation();
   }
-  await Promise.all([loadWeather(), loadNews()]);
+  await Promise.all([loadWeather(), loadNews(), loadEmails()]);
   btn.disabled = false;
   btn.textContent = '↻ Refresh Brief';
 }
