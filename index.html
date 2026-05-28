@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Arturo's Daily Brief</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Daily Brief">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" id="appIcon">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://accounts.google.com/gsi/client" async></script>
 <style>
@@ -257,6 +261,28 @@
   }
   .theme-toggle:hover { border-color: var(--ink); color: var(--ink); }
 </style>
+<script>
+(function(){
+  const c = document.createElement('canvas');
+  c.width = c.height = 180;
+  const ctx = c.getContext('2d');
+  // Background
+  ctx.fillStyle = '#0f0e0c';
+  ctx.fillRect(0, 0, 180, 180);
+  // Gold rule lines
+  ctx.strokeStyle = '#b8964e';
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(22, 55); ctx.lineTo(158, 55); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(22, 125); ctx.lineTo(158, 125); ctx.stroke();
+  // Monogram
+  ctx.fillStyle = '#f5f0e8';
+  ctx.font = 'bold 82px Georgia, serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('DB', 90, 90);
+  document.getElementById('appIcon').href = c.toDataURL();
+})();
+</script>
 </head>
 <body>
 
