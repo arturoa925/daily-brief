@@ -212,8 +212,8 @@
 </head>
 <body>
 
-<div class="location-bar" id="locationBar" onclick="promptCity()">
-  📍 Tap to set your city for weather — <span>set location</span>
+<div class="location-bar" id="locationBar">
+  📍 Tap to detect your location
 </div>
 
 <div class="masthead">
@@ -239,7 +239,7 @@
   </div>
 
   <div class="section" id="newsSection">
-    <div class="section-label">Top News</div>
+    <div class="section-label">Local News</div>
     <div id="newsContent">
       <div class="skeleton" style="width:100%"></div><div class="skeleton" style="width:70%;margin-bottom:16px"></div>
       <div class="skeleton" style="width:100%"></div><div class="skeleton" style="width:70%;margin-bottom:16px"></div>
@@ -313,16 +313,58 @@ let lon  = localStorage.getItem(LON_KEY)  || '';
 
 function updateLocationBar() {
   document.getElementById('locationBar').innerHTML = city
-    ? `📍 Weather for <span>${city}</span> &nbsp;·&nbsp; <span onclick="promptCity()">change</span>`
-    : `📍 Tap to set your city for weather — <span>set location</span>`;
+    ? `📍 Weather for <span>${city}</span> &nbsp;·&nbsp; <span onclick="refreshLocation()">use GPS</span> &nbsp;·&nbsp; <span onclick="promptCity()">enter city</span>`
+    : `📍 <span onclick="refreshLocation()">Tap to detect location</span> &nbsp;·&nbsp; <span onclick="promptCity()">enter city manually</span>`;
 }
 updateLocationBar();
+
+function detectLocation() {
+  return new Promise((resolve) => {
+    const bar = document.getElementById('locationBar');
+    if (!navigator.geolocation) { resolve(); return; }
+    bar.innerHTML = `📍 Getting your location…`;
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        lat = pos.coords.latitude;
+        lon = pos.coords.longitude;
+        localStorage.setItem(LAT_KEY, lat);
+        localStorage.setItem(LON_KEY, lon);
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
+          const data = await res.json();
+          const addr = data.address || {};
+          const place = addr.city || addr.town || addr.village || addr.county || 'Your Location';
+          city = addr.state ? `${place}, ${addr.state}` : place;
+          localStorage.setItem(CITY_KEY, city);
+        } catch(e) {
+          city = 'Your Location';
+          localStorage.setItem(CITY_KEY, city);
+        }
+        updateLocationBar();
+        resolve();
+      },
+      () => {
+        if (lat && lon) {
+          updateLocationBar();
+        } else {
+          bar.innerHTML = `📍 Location denied — <span onclick="promptCity()">enter city manually</span>`;
+        }
+        resolve();
+      },
+      { timeout: 10000, maximumAge: 300000 }
+    );
+  });
+}
+
+async function refreshLocation() {
+  await detectLocation();
+  await Promise.all([loadWeather(), loadNews()]);
+}
 
 async function promptCity() {
   const input = prompt('Enter your city (e.g. Los Angeles):');
   if (!input || !input.trim()) return;
   city = input.trim();
-  // Geocode via open-meteo geocoding API (free, no key)
   try {
     const geo = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en&format=json`);
     const geoData = await geo.json();
@@ -428,25 +470,39 @@ async function loadWeather() {
   }
 }
 
-// ── News (RSS via rss2json — free tier) ───────────────────
+// ── News (Google News RSS via allorigins CORS proxy) ──────
 async function loadNews() {
+  const searchCity = city && city !== 'Your Location' ? city.split(',')[0].trim() : '';
+  const query = searchCity ? `${searchCity} local news` : 'top local news';
   try {
-    // Using BBC Top Stories RSS via rss2json public proxy
-    const rss = 'https://feeds.bbci.co.uk/news/rss.xml';
-    const url = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rss)}`;
-    const res = await fetch(url);
-    const d   = await res.json();
-    if (!d.items || d.items.length === 0) throw new Error('no items');
-    const html = d.items.slice(0, 4).map(item => `
-      <div class="news-item">
-        <div class="news-headline"><a href="${item.link}" target="_blank">${item.title}</a></div>
-        <div class="news-summary">${item.description ? item.description.replace(/<[^>]*>/g,'').slice(0,120) + '…' : ''}</div>
-        <div class="news-source">BBC News</div>
-      </div>`).join('');
+    const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(rssUrl)}`;
+    const res = await fetch(proxyUrl);
+    const data = await res.json();
+    if (!data.contents) throw new Error('no content');
+    const xml = new DOMParser().parseFromString(data.contents, 'text/xml');
+    const items = Array.from(xml.querySelectorAll('item')).slice(0, 4);
+    if (items.length === 0) throw new Error('no items');
+    const html = items.map(item => {
+      const rawTitle = item.querySelector('title')?.textContent || '';
+      const sourceName = item.querySelector('source')?.textContent || 'News';
+      // Google News titles often end with " - Source Name"; strip that suffix
+      const title = rawTitle.replace(new RegExp(`\\s*-\\s*${sourceName.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}$`), '').trim() || rawTitle;
+      const linkEl = item.getElementsByTagName('link')[0];
+      const link = linkEl?.textContent?.trim() || '#';
+      const desc = item.querySelector('description')?.textContent || '';
+      const clean = desc.replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim().slice(0, 120);
+      return `
+        <div class="news-item">
+          <div class="news-headline"><a href="${link}" target="_blank">${title}</a></div>
+          ${clean ? `<div class="news-summary">${clean}…</div>` : ''}
+          <div class="news-source">${sourceName}</div>
+        </div>`;
+    }).join('');
     document.getElementById('newsContent').innerHTML = html;
     reveal('newsSection', 200);
   } catch(e) {
-    document.getElementById('newsContent').innerHTML = `<div class="error-msg">Couldn't load news. Check your connection and refresh.</div>`;
+    document.getElementById('newsContent').innerHTML = `<div class="error-msg">Couldn't load local news. Check your connection and refresh.</div>`;
     reveal('newsSection', 200);
   }
 }
@@ -459,6 +515,9 @@ async function loadAll() {
   ['quoteSection','weatherSection','newsSection'].forEach(id =>
     document.getElementById(id).classList.remove('visible'));
   loadQuote();
+  if (!lat || !lon) {
+    await detectLocation();
+  }
   await Promise.all([loadWeather(), loadNews()]);
   btn.disabled = false;
   btn.textContent = '↻ Refresh Brief';
