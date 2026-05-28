@@ -13,6 +13,20 @@
     --gold: #b8964e;
     --muted: #7a7060;
     --divider: #d4cdc0;
+    --card-bg: rgba(0,0,0,0.04);
+    --skeleton-a: #e8e0d0;
+    --skeleton-b: #d8d0c0;
+  }
+  [data-theme="dark"] {
+    --ink: #e8e3d8;
+    --paper: #181714;
+    --accent: #d4553b;
+    --gold: #c9a85e;
+    --muted: #7a7468;
+    --divider: #2c2b27;
+    --card-bg: rgba(255,255,255,0.06);
+    --skeleton-a: #252420;
+    --skeleton-b: #302f2a;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -21,6 +35,7 @@
     font-family: 'DM Sans', sans-serif;
     min-height: 100vh;
     padding: 0 0 60px;
+    transition: background 0.3s, color 0.3s;
   }
   .masthead {
     border-bottom: 3px double var(--ink);
@@ -124,7 +139,7 @@
   .weather-detail {
     font-size: 12px;
     color: var(--muted);
-    background: rgba(0,0,0,0.04);
+    background: var(--card-bg);
     padding: 8px 12px;
     border-radius: 4px;
   }
@@ -148,7 +163,7 @@
   .schedule-input-row { display: flex; gap: 8px; margin-bottom: 12px; }
   .schedule-input {
     flex: 1;
-    background: white;
+    background: var(--paper);
     border: 1px solid var(--divider);
     border-radius: 4px;
     padding: 10px 12px;
@@ -182,7 +197,7 @@
   .schedule-time { font-size: 11px; color: var(--accent); font-weight: 500; min-width: 38px; }
   .schedule-remove { margin-left: auto; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; }
   .skeleton {
-    background: linear-gradient(90deg, #e8e0d0 25%, #d8d0c0 50%, #e8e0d0 75%);
+    background: linear-gradient(90deg, var(--skeleton-a) 25%, var(--skeleton-b) 50%, var(--skeleton-a) 75%);
     background-size: 200% 100%;
     animation: shimmer 1.4s infinite;
     border-radius: 4px;
@@ -208,6 +223,18 @@
   .refresh-btn:hover { background: var(--ink); color: var(--paper); }
   .refresh-btn:disabled { opacity: 0.4; cursor: not-allowed; }
   .error-msg { color: var(--muted); font-size: 13px; }
+  .theme-toggle {
+    background: none;
+    border: 1px solid var(--divider);
+    border-radius: 20px;
+    padding: 2px 8px;
+    font-size: 13px;
+    cursor: pointer;
+    color: var(--muted);
+    line-height: 1.4;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .theme-toggle:hover { border-color: var(--ink); color: var(--ink); }
 </style>
 </head>
 <body>
@@ -220,7 +247,10 @@
   <div class="masthead-top">
     <span id="todayDate">—</span>
     <span>Good Morning, Arturo</span>
-    <span id="todayDay">—</span>
+    <span style="display:flex;align-items:center;gap:8px">
+      <span id="todayDay">—</span>
+      <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">◑</button>
+    </span>
   </div>
   <h1>The Daily Brief</h1>
   <div class="edition">Your personal morning edition</div>
@@ -522,6 +552,19 @@ async function loadAll() {
   btn.disabled = false;
   btn.textContent = '↻ Refresh Brief';
 }
+
+// ── Dark mode ─────────────────────────────────────────────
+const THEME_KEY = 'brief_theme';
+function applyTheme(dark) {
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  document.getElementById('themeToggle').textContent = dark ? '○' : '◑';
+}
+function toggleTheme() {
+  const dark = document.documentElement.getAttribute('data-theme') !== 'dark';
+  localStorage.setItem(THEME_KEY, dark ? 'dark' : 'light');
+  applyTheme(dark);
+}
+applyTheme(localStorage.getItem(THEME_KEY) === 'dark');
 
 loadAll();
 </script>
