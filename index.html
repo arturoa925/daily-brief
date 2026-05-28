@@ -433,7 +433,7 @@ async function loadNews() {
   try {
     // Using BBC Top Stories RSS via rss2json public proxy
     const rss = 'https://feeds.bbci.co.uk/news/rss.xml';
-    const url = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rss)}&count=4`;
+    const url = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rss)}`;
     const res = await fetch(url);
     const d   = await res.json();
     if (!d.items || d.items.length === 0) throw new Error('no items');
