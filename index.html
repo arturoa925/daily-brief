@@ -347,7 +347,7 @@
 
 </div>
 
-<button class="refresh-btn" id="refreshBtn" onclick="loadAll()">↻ Refresh Brief</button>
+<button class="refresh-btn" id="refreshBtn" onclick="loadAll(true)">↻ Refresh Brief</button>
 
 <script>
 // ── Quotes list (no API needed) ───────────────────────────
@@ -612,17 +612,50 @@ function parseNewsItems(xmlStr) {
   }).join('');
 }
 
-async function loadNews() {
-  const searchCity = city && city !== 'Your Location' ? city.split(',')[0].trim() : '';
+const NEWS_HTML_KEY = 'brief_news_html';
+const NEWS_TS_KEY   = 'brief_news_ts';
+const NEWS_CITY_KEY = 'brief_news_city';
+const NEWS_TTL      = 30 * 60 * 1000; // 30 minutes
+
+async function loadNews(forceRefresh = false) {
+  const cachedHtml = localStorage.getItem(NEWS_HTML_KEY);
+  const cachedTs   = parseInt(localStorage.getItem(NEWS_TS_KEY) || '0');
+  const cachedCity = localStorage.getItem(NEWS_CITY_KEY) || '';
+  const currentCity = (city && city !== 'Your Location') ? city.split(',')[0].trim() : '';
+  const cacheAge   = Date.now() - cachedTs;
+  const cityChanged = currentCity !== cachedCity;
+
+  // Show cached content immediately if it exists and is still fresh
+  if (cachedHtml && !cityChanged && !forceRefresh && cacheAge < NEWS_TTL) {
+    document.getElementById('newsContent').innerHTML = cachedHtml;
+    reveal('newsSection', 200);
+    return;
+  }
+
+  // If we have any usable cache, show it now while we fetch in background
+  if (cachedHtml && !cityChanged) {
+    document.getElementById('newsContent').innerHTML = cachedHtml;
+    reveal('newsSection', 200);
+  }
+
+  const searchCity = currentCity || '';
   const query = searchCity ? `${searchCity} local news` : 'top news';
   try {
     const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
     const xmlStr = await fetchRSS(rssUrl);
-    document.getElementById('newsContent').innerHTML = parseNewsItems(xmlStr);
+    const html = parseNewsItems(xmlStr);
+    localStorage.setItem(NEWS_HTML_KEY, html);
+    localStorage.setItem(NEWS_TS_KEY, Date.now().toString());
+    localStorage.setItem(NEWS_CITY_KEY, currentCity);
+    document.getElementById('newsContent').innerHTML = html;
     reveal('newsSection', 200);
   } catch(e) {
-    document.getElementById('newsContent').innerHTML = `<div class="error-msg">Couldn't load local news. Check your connection and refresh.</div>`;
-    reveal('newsSection', 200);
+    if (!cachedHtml || cityChanged) {
+      document.getElementById('newsContent').innerHTML =
+        `<div class="error-msg">Couldn't load local news. Check your connection and refresh.</div>`;
+      reveal('newsSection', 200);
+    }
+    // Cached content is already showing — leave it in place
   }
 }
 
@@ -708,7 +741,7 @@ async function fetchEmails() {
 }
 
 // ── Load all ──────────────────────────────────────────────
-async function loadAll() {
+async function loadAll(forceRefresh = false) {
   const btn = document.getElementById('refreshBtn');
   btn.disabled = true;
   btn.textContent = 'Loading...';
@@ -718,7 +751,7 @@ async function loadAll() {
   if (!lat || !lon) {
     await detectLocation();
   }
-  await Promise.all([loadWeather(), loadNews(), loadEmails()]);
+  await Promise.all([loadWeather(), loadNews(forceRefresh), loadEmails()]);
   btn.disabled = false;
   btn.textContent = '↻ Refresh Brief';
 }
