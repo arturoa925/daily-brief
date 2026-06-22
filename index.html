@@ -818,10 +818,12 @@ async function fetchLeetcodeDaily() {
     const r = await fetchTimeout('https://alfa-leetcode-api.onrender.com/daily', 8000);
     const d = await r.json();
     if (!d.questionTitle) throw new Error('empty');
+    const rawLink = d.link || d.questionLink || '';
+    const href = rawLink.startsWith('http') ? rawLink : `https://leetcode.com${rawLink}`;
     return `<div class="dev-block">
       <div class="dev-block-title">LeetCode Daily Challenge</div>
       <div class="dev-item">
-        <a href="${d.link || `https://leetcode.com${d.questionLink || ''}`}" target="_blank">${d.questionTitle}</a>
+        <a href="${href}" target="_blank">${d.questionTitle}</a>
         <div class="dev-meta">${d.difficulty || ''}</div>
       </div>
     </div>`;
