@@ -260,6 +260,35 @@
     transition: border-color 0.2s, color 0.2s;
   }
   .theme-toggle:hover { border-color: var(--ink); color: var(--ink); }
+  .weather-hourly-strip {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 14px;
+    overflow-x: auto;
+    margin-top: 6px;
+    padding-top: 12px;
+    border-top: 1px solid var(--divider);
+  }
+  .hourly-item { flex: 0 0 auto; text-align: center; font-size: 11px; color: var(--muted); min-width: 38px; }
+  .hourly-item .h-temp { font-size: 13px; color: var(--ink); font-weight: 500; margin-top: 4px; }
+  .aqi-badge { display: inline-block; margin-top: 2px; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 500; }
+  .fitness-text { font-family: 'Playfair Display', serif; font-size: clamp(16px, 4vw, 21px); line-height: 1.4; }
+  .dev-block { margin-bottom: 18px; }
+  .dev-block:last-child { margin-bottom: 0; }
+  .dev-block-title { font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); margin-bottom: 8px; font-weight: 500; }
+  .dev-item { font-size: 13px; padding: 7px 0; border-bottom: 1px solid var(--divider); line-height: 1.4; }
+  .dev-item:last-child { border-bottom: none; }
+  .dev-item a { color: var(--ink); text-decoration: none; font-weight: 500; }
+  .dev-item a:hover { color: var(--accent); }
+  .dev-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .yt-item { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--divider); }
+  .yt-item:last-child { border-bottom: none; }
+  .yt-thumb { width: 90px; height: 51px; object-fit: cover; border-radius: 4px; flex-shrink: 0; background: var(--card-bg); }
+  .yt-info { flex: 1; min-width: 0; }
+  .yt-title { font-family: 'Playfair Display', serif; font-size: 14px; font-weight: 700; line-height: 1.3; margin-bottom: 3px; color: var(--ink); }
+  .yt-title a { color: inherit; text-decoration: none; }
+  .yt-title a:hover { color: var(--accent); }
+  .yt-channel { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
 </style>
 <script>
 (function(){
@@ -324,6 +353,27 @@
     </div>
   </div>
 
+  <div class="section" id="fitnessSection">
+    <div class="section-label">Fitness</div>
+    <div id="fitnessContent"><div class="skeleton" style="width:100%"></div><div class="skeleton" style="width:50%"></div></div>
+  </div>
+
+  <div class="section" id="devSection">
+    <div class="section-label">Dev Brief</div>
+    <div id="devContent">
+      <div class="skeleton" style="width:100%"></div><div class="skeleton" style="width:70%;margin-bottom:16px"></div>
+      <div class="skeleton" style="width:100%"></div><div class="skeleton" style="width:70%"></div>
+    </div>
+  </div>
+
+  <div class="section" id="youtubeSection">
+    <div class="section-label">YouTube</div>
+    <div id="youtubeContent">
+      <div class="skeleton" style="width:100%;height:51px;margin-bottom:8px"></div>
+      <div class="skeleton" style="width:100%;height:51px"></div>
+    </div>
+  </div>
+
   <div class="section" id="emailSection">
     <div class="section-label">Inbox</div>
     <div id="emailContent">
@@ -384,6 +434,37 @@ const QUOTES = [
   { quote: "Rise up, start fresh, see the bright opportunity in each new day.", author: "Unknown" },
   { quote: "Train insane or remain the same.", author: "Unknown" },
 ];
+
+// ── Fitness tips (no API needed) ──────────────────────────
+const FITNESS_TIPS = [
+  "Do a 20-minute walk before lunch — it resets your energy better than coffee.",
+  "Today's move: 3 sets of 10 push-ups, anywhere, anytime.",
+  "Stretch your hips for 5 minutes — it undoes hours of sitting.",
+  "Drink a glass of water before every meal today.",
+  "Take the stairs every time you have the choice today.",
+  "5-minute mobility routine: ankles, hips, shoulders. That's it.",
+  "Plan tomorrow's workout tonight — decisions made in advance get done.",
+  "Today: 50 air squats, spread across the day however you like.",
+  "Stand up and move for 2 minutes every hour you're at a desk.",
+  "A short walk after meals lowers blood sugar spikes — try it today.",
+  "Do today's hardest set first, while you're freshest.",
+  "Foam roll or stretch for 10 minutes before bed tonight.",
+  "Protein at every meal today — aim for a palm-sized portion.",
+  "Try a cold finish to your shower today. 30 seconds is enough.",
+  "Set a 'last set to failure' goal on one exercise today.",
+  "Mobility day: spend 10 minutes on whatever feels tightest.",
+  "Sleep is the best recovery tool you have — protect tonight's 7+ hours.",
+  "Today, move first thing in the morning before anything else gets in the way.",
+  "Pick one exercise you've been avoiding and do it today.",
+  "Active recovery: a light walk or easy bike ride counts as training too.",
+];
+
+function loadFitnessTip() {
+  const idx = (now.getDate() + now.getMonth()) % FITNESS_TIPS.length;
+  document.getElementById('fitnessContent').innerHTML =
+    `<div class="fitness-text">${FITNESS_TIPS[idx]}</div>`;
+  reveal('fitnessSection', 50);
+}
 
 // ── Date ──────────────────────────────────────────────────
 const now = new Date();
@@ -526,6 +607,13 @@ const WMO = {
   80:'Rain showers', 81:'Rain showers', 82:'Violent showers',
   95:'Thunderstorm', 96:'Thunderstorm w/ hail', 99:'Thunderstorm w/ hail'
 };
+function aqiColor(aqi) {
+  if (aqi <= 50) return '#5a9e5a';
+  if (aqi <= 100) return '#b8964e';
+  if (aqi <= 150) return '#d4823b';
+  return '#c8452a';
+}
+
 async function loadWeather() {
   if (!lat || !lon) {
     document.getElementById('weatherContent').innerHTML =
@@ -534,14 +622,40 @@ async function loadWeather() {
     return;
   }
   try {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&timezone=auto&forecast_days=1`;
-    const res = await fetch(url);
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weather_code&hourly=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,uv_index_max&temperature_unit=fahrenheit&timezone=auto&forecast_days=1`;
+    const aqiUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi&timezone=auto`;
+    const [res, aqiRes] = await Promise.all([fetch(url), fetchTimeout(aqiUrl, 5000).catch(() => null)]);
     const d = await res.json();
     const temp   = Math.round(d.current.temperature_2m) + '°F';
     const humid  = d.current.relative_humidity_2m + '%';
     const cond   = WMO[d.current.weather_code] || 'Unknown';
     const high   = Math.round(d.daily.temperature_2m_max[0]) + '°F';
     const low    = Math.round(d.daily.temperature_2m_min[0]) + '°F';
+    const uv     = d.daily.uv_index_max?.[0] != null ? Math.round(d.daily.uv_index_max[0]) : null;
+
+    let aqiHtml = '';
+    if (aqiRes) {
+      try {
+        const aqiData = await aqiRes.json();
+        const aqi = aqiData.current?.us_aqi;
+        if (aqi != null) {
+          aqiHtml = `<div class="weather-detail"><strong style="color:${aqiColor(aqi)}">${Math.round(aqi)}</strong> AQI</div>`;
+        }
+      } catch(e) {}
+    }
+    const uvHtml = uv != null ? `<div class="weather-detail"><strong>${uv}</strong> UV Index</div>` : '';
+
+    const nowHour = new Date().getHours();
+    const hourlyTimes = d.hourly?.time || [];
+    const hourlyTemps = d.hourly?.temperature_2m || [];
+    const hourlyCodes = d.hourly?.weather_code || [];
+    let hourlyHtml = '';
+    for (let i = nowHour; i < Math.min(nowHour + 6, hourlyTimes.length); i++) {
+      const hr = new Date(hourlyTimes[i]).getHours();
+      const label = hr === 0 ? '12a' : hr === 12 ? '12p' : hr > 12 ? `${hr - 12}p` : `${hr}a`;
+      hourlyHtml += `<div class="hourly-item">${label}<div class="h-temp">${Math.round(hourlyTemps[i])}°</div></div>`;
+    }
+
     document.getElementById('weatherContent').innerHTML = `
       <div class="weather-grid">
         <div class="weather-main">
@@ -551,6 +665,8 @@ async function loadWeather() {
         <div class="weather-detail"><strong>${high}</strong> High</div>
         <div class="weather-detail"><strong>${low}</strong> Low</div>
         <div class="weather-detail"><strong>${humid}</strong> Humidity</div>
+        ${uvHtml}${aqiHtml}
+        ${hourlyHtml ? `<div class="weather-hourly-strip">${hourlyHtml}</div>` : ''}
       </div>`;
     reveal('weatherSection', 100);
   } catch(e) {
@@ -661,6 +777,72 @@ async function loadNews(forceRefresh = false) {
   }
 }
 
+// ── Dev Brief ─────────────────────────────────────────────
+async function fetchGithubTrending() {
+  try {
+    const r = await fetchTimeout('https://ghapi.huchen.dev/repositories?since=daily', 6000);
+    const repos = (await r.json()).slice(0, 4);
+    if (!repos.length) throw new Error('empty');
+    return `<div class="dev-block">
+      <div class="dev-block-title">GitHub Trending</div>
+      ${repos.map(repo => `
+        <div class="dev-item">
+          <a href="${repo.url}" target="_blank">${repo.author}/${repo.name}</a>
+          <div class="dev-meta">${repo.language || ''}${repo.language ? ' · ' : ''}★ ${repo.stars} (+${repo.currentPeriodStars} today)</div>
+        </div>`).join('')}
+    </div>`;
+  } catch(e) { return ''; }
+}
+
+async function fetchHackerNews() {
+  try {
+    const idsRes = await fetchTimeout('https://hacker-news.firebaseio.com/v0/topstories.json', 6000);
+    const ids = (await idsRes.json()).slice(0, 5);
+    const items = await Promise.all(ids.map(id =>
+      fetchTimeout(`https://hacker-news.firebaseio.com/v0/item/${id}.json`, 6000).then(r => r.json())
+    ));
+    if (!items.length) throw new Error('empty');
+    return `<div class="dev-block">
+      <div class="dev-block-title">Hacker News</div>
+      ${items.map(item => `
+        <div class="dev-item">
+          <a href="${item.url || `https://news.ycombinator.com/item?id=${item.id}`}" target="_blank">${item.title}</a>
+          <div class="dev-meta">${item.score} points · ${item.descendants || 0} comments</div>
+        </div>`).join('')}
+    </div>`;
+  } catch(e) { return ''; }
+}
+
+async function fetchLeetcodeDaily() {
+  try {
+    const r = await fetchTimeout('https://alfa-leetcode-api.onrender.com/daily', 8000);
+    const d = await r.json();
+    if (!d.questionTitle) throw new Error('empty');
+    return `<div class="dev-block">
+      <div class="dev-block-title">LeetCode Daily Challenge</div>
+      <div class="dev-item">
+        <a href="${d.link || `https://leetcode.com${d.questionLink || ''}`}" target="_blank">${d.questionTitle}</a>
+        <div class="dev-meta">${d.difficulty || ''}</div>
+      </div>
+    </div>`;
+  } catch(e) { return ''; }
+}
+
+async function loadDevBrief() {
+  try {
+    const [github, hn, leetcode] = await Promise.all([
+      fetchGithubTrending(), fetchHackerNews(), fetchLeetcodeDaily()
+    ]);
+    const html = github + hn + leetcode;
+    document.getElementById('devContent').innerHTML = html ||
+      `<div class="error-msg">Couldn't load dev brief. Try refreshing.</div>`;
+    reveal('devSection', 200);
+  } catch(e) {
+    document.getElementById('devContent').innerHTML = `<div class="error-msg">Couldn't load dev brief. Try refreshing.</div>`;
+    reveal('devSection', 200);
+  }
+}
+
 // ── Gmail ─────────────────────────────────────────────────
 const GMAIL_CLIENT_ID = '33187806113-mek6tnuqv6lp3001k48551f1k2et4sla.apps.googleusercontent.com';
 const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
@@ -742,18 +924,117 @@ async function fetchEmails() {
   }
 }
 
+// ── YouTube ───────────────────────────────────────────────
+const YT_SCOPE = 'https://www.googleapis.com/auth/youtube.readonly';
+let ytTokenClient;
+let ytToken = null;
+
+function initYtTokenClient() {
+  ytTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GMAIL_CLIENT_ID,
+    scope: YT_SCOPE,
+    callback: async (resp) => {
+      if (resp.error) { showYoutubeConnect(); return; }
+      ytToken = resp.access_token;
+      await fetchYoutubeSubs();
+    }
+  });
+}
+
+function showYoutubeConnect() {
+  document.getElementById('youtubeContent').innerHTML =
+    `<button class="connect-btn" onclick="connectYoutube()">Connect YouTube</button>`;
+  reveal('youtubeSection', 250);
+}
+
+function connectYoutube() {
+  if (!window.google) return;
+  if (!ytTokenClient) initYtTokenClient();
+  ytTokenClient.requestAccessToken();
+}
+
+async function loadYoutube() {
+  if (!window.google) { setTimeout(loadYoutube, 500); return; }
+  if (!ytTokenClient) initYtTokenClient();
+  if (!ytToken) { showYoutubeConnect(); return; }
+  await fetchYoutubeSubs();
+}
+
+async function ytApi(path) {
+  const res = await fetch(`https://www.googleapis.com/youtube/v3${path}`, {
+    headers: { Authorization: `Bearer ${ytToken}` }
+  });
+  if (res.status === 401) { ytToken = null; throw new Error('unauthorized'); }
+  return res.json();
+}
+
+async function fetchYoutubeSubs() {
+  try {
+    const subsData = await ytApi('/subscriptions?part=snippet&mine=true&maxResults=50&order=alphabetical');
+    if (ytToken === null) { showYoutubeConnect(); return; }
+    const channelIds = (subsData.items || []).map(s => s.snippet.resourceId.channelId);
+    if (channelIds.length === 0) {
+      document.getElementById('youtubeContent').innerHTML = `<div class="error-msg">No subscriptions found.</div>`;
+      reveal('youtubeSection', 250);
+      return;
+    }
+
+    const channelsData = await ytApi(`/channels?part=contentDetails&id=${channelIds.slice(0, 50).join(',')}`);
+    const uploadsPlaylists = (channelsData.items || [])
+      .map(c => c.contentDetails?.relatedPlaylists?.uploads)
+      .filter(Boolean);
+
+    const latestVideos = await Promise.all(uploadsPlaylists.map(async (playlistId) => {
+      try {
+        const d = await ytApi(`/playlistItems?part=snippet&playlistId=${playlistId}&maxResults=1`);
+        return d.items?.[0]?.snippet || null;
+      } catch(e) { return null; }
+    }));
+
+    const videos = latestVideos
+      .filter(Boolean)
+      .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
+      .slice(0, 6);
+
+    if (videos.length === 0) {
+      document.getElementById('youtubeContent').innerHTML = `<div class="error-msg">No recent uploads found.</div>`;
+      reveal('youtubeSection', 250);
+      return;
+    }
+
+    document.getElementById('youtubeContent').innerHTML = videos.map(v => {
+      const videoId = v.resourceId?.videoId;
+      const thumb = v.thumbnails?.medium?.url || v.thumbnails?.default?.url || '';
+      return `
+        <div class="yt-item">
+          <a href="https://www.youtube.com/watch?v=${videoId}" target="_blank"><img class="yt-thumb" src="${thumb}" loading="lazy"></a>
+          <div class="yt-info">
+            <div class="yt-title"><a href="https://www.youtube.com/watch?v=${videoId}" target="_blank">${v.title}</a></div>
+            <div class="yt-channel">${v.videoOwnerChannelTitle || v.channelTitle || ''}</div>
+          </div>
+        </div>`;
+    }).join('');
+    reveal('youtubeSection', 250);
+  } catch(e) {
+    if (ytToken === null) { showYoutubeConnect(); return; }
+    document.getElementById('youtubeContent').innerHTML = `<div class="error-msg">Couldn't load YouTube. Try refreshing.</div>`;
+    reveal('youtubeSection', 250);
+  }
+}
+
 // ── Load all ──────────────────────────────────────────────
 async function loadAll(forceRefresh = false) {
   const btn = document.getElementById('refreshBtn');
   btn.disabled = true;
   btn.textContent = 'Loading...';
-  ['quoteSection','weatherSection','newsSection','emailSection'].forEach(id =>
+  ['quoteSection','weatherSection','newsSection','fitnessSection','devSection','youtubeSection','emailSection'].forEach(id =>
     document.getElementById(id).classList.remove('visible'));
   loadQuote();
+  loadFitnessTip();
   if (!lat || !lon) {
     await detectLocation();
   }
-  await Promise.all([loadWeather(), loadNews(forceRefresh), loadEmails()]);
+  await Promise.all([loadWeather(), loadNews(forceRefresh), loadDevBrief(), loadYoutube(), loadEmails()]);
   btn.disabled = false;
   btn.textContent = '↻ Refresh Brief';
 }
